@@ -38,6 +38,23 @@ NEGATIVE_WORDS = [
     "boring",
 ]
 
+# Strong words get larger magnitudes; listed words not in this dict default to +/-1.
+WORD_WEIGHTS = {
+    # positive
+    "love": 5, "amazing": 4, "awesome": 4, "excited": 3, "great": 3,
+    "happy": 3, "proud": 3, "hopeful": 2, "fun": 2, "good": 2,
+    "like": 2, "chill": 1, "relaxed": 1,
+    ":)": 2, "😂": 2,
+    # negative
+    "hate": -5, "terrible": -4, "awful": -4, "angry": -3, "dislike": -2,
+    "sad": -3, "upset": -3, "stressed": -2, "bad": -2, "tired": -1,
+    "boring": -1, ":(": -2, "💀": -1,
+    # slang (positive)
+    "fire": 3, "sick": 3, "lit": 3, "goated": 4, "slaps": 3, "dope": 3,
+    # slang (negative)
+    "mid": -2, "cringe": -3, "trash": -3, "ugh": -2, "meh": -1,
+}
+
 # ---------------------------------------------------------------------
 # Starter labeled dataset
 # ---------------------------------------------------------------------
@@ -67,28 +84,45 @@ TRUE_LABELS = [
     "negative",  # "I am not happy about this"
 ]
 
-# TODO: Add 5-10 more posts and labels.
-#
-# Requirements:
-#   - For every new post you add to SAMPLE_POSTS, you must add one
-#     matching label to TRUE_LABELS.
-#   - SAMPLE_POSTS and TRUE_LABELS must always have the same length.
-#   - Include a variety of language styles, such as:
-#       * Slang ("lowkey", "highkey", "no cap")
-#       * Emojis (":)", ":(", "🥲", "😂", "💀")
-#       * Sarcasm ("I absolutely love getting stuck in traffic")
-#       * Ambiguous or mixed feelings
-#
-# Tips:
-#   - Try to create some examples that are hard to label even for you.
-#   - Make a note of any examples that you and a friend might disagree on.
-#     Those "edge cases" are interesting to inspect for both the rule based
-#     and ML models.
-#
-# Example of how you might extend the lists:
-#
-# SAMPLE_POSTS.append("Lowkey stressed but kind of proud of myself")
-# TRUE_LABELS.append("mixed")
-#
+# Added posts using Claude: 5 straightforward, then 5 ambiguous edge cases.
+SAMPLE_POSTS.extend([
+    # Straightforward
+    "No cap, this pizza is amazing 😂",
+    "I hate waiting in long lines",
+    "Just got the job offer, so happy right now :)",
+    "Feeling really sad and alone tonight :(",
+    "The meeting is at 3pm in room 204",
+    # Edge cases
+    "I absolutely love getting stuck in traffic",
+    "Lowkey stressed but kind of proud of myself",
+    "Great, another Monday 💀",
+    "Passed the exam 🥲",
+    "Well, that happened",
+    #SLANG TERMS
+    "This pizza is fire",
+    "That game was so sick, I can't believe we won",
+])
+
+TRUE_LABELS.extend([
+    # Straightforward
+    "positive",  # "No cap, this pizza is amazing 😂"
+    "negative",  # "I hate waiting in long lines"
+    "positive",  # "Just got the job offer, so happy right now :)"
+    "negative",  # "Feeling really sad and alone tonight :("
+    "neutral",   # "The meeting is at 3pm in room 204"
+    # Edge cases
+    "negative",  # sarcasm: "love" is positive but the meaning is negative
+    "mixed",     # slang + both stress and pride
+    "negative",  # sarcastic "Great" plus 💀
+    "mixed",     # 🥲 can mean relief, tears, or both
+    "neutral",   # could be read as negative or neutral depending on tone
+    "positive",  # slang: "fire" means good
+    "positive",  # slang: "sick" means good
+
+])
+
+
 # Remember to keep them aligned:
-#   len(SAMPLE_POSTS) == len(TRUE_LABELS)
+len(SAMPLE_POSTS) == len(TRUE_LABELS)
+
+

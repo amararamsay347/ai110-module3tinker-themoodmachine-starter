@@ -11,7 +11,34 @@ This class starts with very simple logic:
 
 from typing import List, Dict, Tuple, Optional
 
-from dataset import POSITIVE_WORDS, NEGATIVE_WORDS
+from dataset import POSITIVE_WORDS, NEGATIVE_WORDS, WORD_WEIGHTS
+#Improvements for def preprocess; to improve on emojis, remove punctuation, and normalize repeated characters
+import re
+
+EMOTICON_PATTERN = r"[:;=]-?[()dpo]|<3"          # :)  :-(  ;)  =D  :P  <3
+EMOJI_PATTERN = r"[\U0001F300-\U0001FAFF\u2600-\u27BF]"  # 🥲 😂 💀 etc.
+TOKEN_RE = re.compile(
+    rf"{EMOTICON_PATTERN}|{EMOJI_PATTERN}|[a-z0-9']+"
+)
+REPEAT_RE = re.compile(r"(.)\1{2,}")             # 3+ of the same char
+
+# A negator before a word flips that word's weight, even with fillers in
+# between ("not be happy", "wasn't really happy").
+NEGATORS = {
+    "not", "never", "no", "cannot", "ain't",
+    "don't", "doesn't", "didn't", "isn't", "aren't", "wasn't", "weren't",
+    "can't", "couldn't", "won't", "wouldn't", "shouldn't",
+    "haven't", "hasn't", "hadn't",
+    "dont", "doesnt", "didnt", "isnt", "arent", "wasnt", "cant", "wont",
+}
+NEGATION_FILLERS = {
+    "be", "been", "being", "am", "is", "are", "was", "were", "to",
+    "really", "so", "very", "too", "quite", "that",
+}
+
+# Suffixes tried (in order) so inflected forms match base-form weights:
+# "loved"/"loving"/"loves" -> "love", "hated" -> "hate", "likes" -> "like".
+INFLECTION_SUFFIXES = ("ing", "ed", "es", "d", "s")
 
 
 class MoodAnalyzer:
@@ -31,6 +58,12 @@ class MoodAnalyzer:
         # Store as sets for faster lookup.
         self.positive_words = set(w.lower() for w in positive_words)
         self.negative_words = set(w.lower() for w in negative_words)
+
+        # Weights: default +/-1 for every listed word, explicit weights override.
+        self.weights = {w: 1 for w in self.positive_words}
+        self.weights.update({w: -1 for w in self.negative_words})
+        self.weights.update(WORD_WEIGHTS)
+
 
     # ---------------------------------------------------------------------
     # Preprocessing
@@ -52,14 +85,52 @@ class MoodAnalyzer:
           - Handle simple emojis separately (":)", ":-(", "🥲", "😂")
           - Normalize repeated characters ("soooo" -> "soo")
         """
+        #improved preprocessing to handle emojis, remove punctuation, and normalize repeated characters
+        #tokens = cleaned.split()
         cleaned = text.strip().lower()
-        tokens = cleaned.split()
-
-        return tokens
+        
+        # Normalize repeated characters: "soooo" -> "soo", "!!!!" -> "!!"
+        cleaned = REPEAT_RE.sub(r"\1\1", cleaned)
+        
+        # Emoticons/emojis come out as their own tokens; words keep apostrophes
+        # ("don't"); all other punctuation is dropped.
+        return TOKEN_RE.findall(cleaned)
 
     # ---------------------------------------------------------------------
     # Scoring logic
     # ---------------------------------------------------------------------
+
+    def _base_weight(self, token: str) -> int:
+        """Weight of a token, also matching inflected forms ("loved", "hating")."""
+        if token in self.weights:
+            return self.weights[token]
+        for suffix in INFLECTION_SUFFIXES:
+            if token.endswith(suffix) and len(token) > len(suffix) + 2:
+                stem = token[: -len(suffix)]
+                for candidate in (stem, stem + "e"):
+                    if candidate in self.weights:
+                        return self.weights[candidate]
+        return 0
+
+    def _is_negated(self, tokens: List[str], i: int) -> bool:
+        """True if a negator precedes tokens[i], allowing filler words between."""
+        for j in range(i - 1, max(i - 4, -1), -1):
+            if tokens[j] in NEGATORS:
+                return True
+            if tokens[j] not in NEGATION_FILLERS:
+                return False
+        return False
+
+    def _weighted_tokens(self, text: str) -> List[Tuple[str, int]]:
+        """(token, weight) pairs with negation already applied."""
+        tokens = self.preprocess(text)
+        pairs = []
+        for i, token in enumerate(tokens):
+            weight = self._base_weight(token)
+            if weight and self._is_negated(tokens, i):
+                weight = -weight
+            pairs.append((token, weight))
+        return pairs
 
     def score_text(self, text: str) -> int:
         """
@@ -75,15 +146,7 @@ class MoodAnalyzer:
           - Give some words higher weights than others (for example "hate" < "annoyed")
           - Treat emojis or slang (":)", "lol", "💀") as strong signals
         """
-        # TODO: Implement this method.
-        #   1. Call self.preprocess(text) to get tokens.
-        #   2. Loop over the tokens.
-        #   3. Increase the score for positive words, decrease for negative words.
-        #   4. Return the total score.
-        #
-        # Hint: if you implement negation, you may want to look at pairs of tokens,
-        # like ("not", "happy") or ("never", "fun").
-        pass
+        return sum(weight for _, weight in self._weighted_tokens(text))
 
     # ---------------------------------------------------------------------
     # Label prediction
@@ -105,12 +168,20 @@ class MoodAnalyzer:
         Just remember that whatever labels you return should match the labels
         you use in TRUE_LABELS in dataset.py if you care about accuracy.
         """
-        # TODO: Implement this method.
-        #   1. Call self.score_text(text) to get the numeric score.
-        #   2. Return "positive" if the score is above 0.
-        #   3. Return "negative" if the score is below 0.
-        #   4. Return "neutral" otherwise.
-        pass
+
+        #Implement system to calculate negative and positive words separately for better results. 
+        weights = [weight for _, weight in self._weighted_tokens(text)]
+        pos = sum(w for w in weights if w > 0)
+        neg = sum(w for w in weights if w < 0)
+
+        if pos >= 2 and neg <= -1:
+            return "mixed"
+        elif pos + neg >= 2:
+            return "positive"
+        elif pos + neg <= -2:
+            return "negative"
+        else:
+            return "neutral"
 
     # ---------------------------------------------------------------------
     # Explanations (optional but recommended)

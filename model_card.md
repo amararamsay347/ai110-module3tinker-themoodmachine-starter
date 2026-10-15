@@ -10,16 +10,17 @@ You may complete this model card for whichever version you used, or compare both
 ## 1. Model Overview
 
 **Model type:**  
-Describe whether you used the rule based model, the ML model, or both.  
-Example: “I used the rule based model only” or “I compared both models.”
+The rule based model was used initally and then compared with the ML model to check for disparities. 
 
 **Intended purpose:**  
 What is this model trying to do?  
-Example: classify short text messages as moods like positive, negative, neutral, or mixed.
+This model is used to classify short text messages as moods like positive, negative, neutral, or mixed.
 
 **How it works (brief):**  
 For the rule based version, describe the scoring rules you created.  
+The rule based scoring rules included a weighted word list using (love +5, hate -5, emojis, and slang) where a negator (not) before the word flips the score from negative to positive or vice versa. The phrases are mixed if they contain strong positive and negative words, otherwise positive, negative or neutral based on whether the score is +2 or -2 or in between. 
 For the ML version, describe how training works at a high level (no math needed).
+The ML scores 1.00 or 100% for accuracy. It turns each phrase into a count of the words it contains using CountVectorizer and trains a logistic regression model on sample_posts and true_labels. The model learns and predicts the new phrases from the learned patterns instead of the rules. 
 
 
 
